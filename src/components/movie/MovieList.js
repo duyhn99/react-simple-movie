@@ -1,14 +1,13 @@
 import React from "react";
 import { SwiperSlide, Swiper } from "swiper/react";
 import useSWR from "swr";
-import { api_key, fetcher } from "../../config";
+import { fetcher, tmdbAPI } from "configs";
 import MovieCard from "./MovieCard";
-//https://api.themoviedb.org/3/movie/now_playing?api_key=7b58cfb00a04adb32cd8ad0924fd807d
+import PropTypes from "prop-types";
+import { withErrorBoundary } from "react-error-boundary";
+
 const MovieList = ({ type = "now_playing" }) => {
-  const { data } = useSWR(
-    `https://api.themoviedb.org/3/movie/${type}?api_key=${api_key}`,
-    fetcher
-  );
+  const { data } = useSWR(tmdbAPI.getMovieList(type), fetcher);
   const movies = data?.results || [];
   return (
     <div className="movie-list">
@@ -24,4 +23,18 @@ const MovieList = ({ type = "now_playing" }) => {
   );
 };
 
-export default MovieList;
+MovieList.propTypes = {
+  type: PropTypes.string.isRequired,
+};
+
+function ErrorBoundaryFallback() {
+  return (
+    <p className="text-red-400 bg-red-50">
+      Something went wrong. Please try again later.
+    </p>
+  );
+}
+
+export default withErrorBoundary(MovieList, {
+  ErrorBoundaryFallback,
+});

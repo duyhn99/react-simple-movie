@@ -1,29 +1,44 @@
 import React, { useEffect, useState } from "react";
 import useSWR from "swr";
-import { api_key, fetcher } from "../config";
-import MovieCard from "../components/movie/MovieCard";
-import useDebounce from "../hooks/useDebounce";
+import { fetcher, tmdbAPI } from "configs";
+import MovieCard from "components/movie/MovieCard";
+import useDebounce from "hooks/useDebounce";
+import ReactPaginate from "react-paginate";
+
+const itemsPerPage = 20;
 
 const MoviePage = () => {
+  const [pageCount, setPageCount] = useState(0);
+  const [itemOffset, setItemOffset] = useState(0);
+
+  const [nextPage, setNextPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filterDebounce = useDebounce(filter, 500);
-  const [url, setUrl] = useState(
-    `https://api.themoviedb.org/3/movie/popular?api_key=${api_key}`
-  );
+  const [url, setUrl] = useState(tmdbAPI.getMovieList("popular", nextPage));
   const handleFilterChange = (e) => {
     setFilter(e.target.value);
   };
-  const { data } = useSWR(url, fetcher);
+  const { data, error } = useSWR(url, fetcher);
+  const loading = !data && !error;
   useEffect(() => {
     if (filterDebounce) {
-      setUrl(
-        `https://api.themoviedb.org/3/search/movie?api_key=${api_key}&query=${filterDebounce}`
-      );
+      setUrl(tmdbAPI.getMovieSearch(filterDebounce, nextPage));
     } else {
-      setUrl(`https://api.themoviedb.org/3/movie/popular?api_key=${api_key}`);
+      setUrl(tmdbAPI.getMovieList("popular", nextPage));
     }
-  }, [filterDebounce]);
+  }, [filterDebounce, nextPage]);
+
   const movies = data?.results || [];
+  useEffect(() => {
+    if (!data || !data.total_results) return;
+    setPageCount(Math.ceil(data.total_results / itemsPerPage));
+  }, [data, itemOffset]);
+
+  const handlePageClick = (event) => {
+    const newOffset = (event.selected * itemsPerPage) % data.total_results;
+    setItemOffset(newOffset);
+    setNextPage(event.selected + 1);
+  };
   return (
     <div className="py-10 page-container">
       <div className="flex mb-10">
@@ -52,9 +67,25 @@ const MoviePage = () => {
           </svg>
         </button>
       </div>
+      {loading && (
+        <div className="w-10 h-10 mx-auto border-4 border-t-4 rounded-full border-primary border-t-transparent animate-spin"></div>
+      )}
       <div className="grid grid-cols-4 gap-10">
-        {movies.length > 0 &&
+        {!loading &&
+          movies.length > 0 &&
           movies.map((item) => <MovieCard key={item.id} item={item} />)}
+      </div>
+      <div className="mt-10">
+        <ReactPaginate
+          breakLabel="..."
+          nextLabel="next >"
+          onPageChange={handlePageClick}
+          pageRangeDisplayed={5}
+          pageCount={pageCount}
+          previousLabel="< previous"
+          renderOnZeroPageCount={null}
+          className="pagination"
+        />
       </div>
     </div>
   );
